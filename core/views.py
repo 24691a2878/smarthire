@@ -1,22 +1,20 @@
 from django.shortcuts import render
-from .ml_model import predict_resume
-from .automation import send_selection_email, daily_report_automation
+from .ml_model import analyze_resume
+from .automation import send_email_simulation, generate_daily_report
 
 def home(request):
     result = None
-    if request.method == 'POST' and request.FILES.get('resume'):
-        pdf_file = request.FILES['resume']
-        name = request.POST.get('name', 'Candidate')
-        email = request.POST.get('email', 'test@test.com')
-        
-        pred, score = predict_resume(pdf_file)
-        
-        status = "Selected" if pred == 1 else "Rejected"
-        
-        # AUTOMATION PART - as per your certificate
-        send_selection_email(email, name, score)
-        daily_report_automation([{'name': name, 'score': score, 'status': status}])
-        
-        result = {'name': name, 'email': email, 'score': score, 'status': status}
-    
-    return render(request, 'index.html', {'result': result})
+    logs = []
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        email = request.POST.get('email')
+        resume_file = request.FILES.get('resume')
+        if resume_file:
+            score, status = analyze_resume(resume_file)
+            logs.append(f"[ML] Analysis for {name}: {score}% - {status}")
+            send_email_simulation(email, name, status)
+            logs.append(f"[AUTOMATION] Email sent to {email}")
+            report_path = generate_daily_report(name, email, score, status)
+            logs.append(f"[AUTOMATION] Report: {report_path}")
+            result = {'name': name, 'email': email, 'score': score, 'status': status}
+    return render(request, 'index.html', {'result': result, 'logs': logs})
